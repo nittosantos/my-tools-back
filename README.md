@@ -9,9 +9,11 @@ Backend desenvolvido em Django + Django REST Framework para o sistema My Tools -
 - **SimpleJWT** - Autenticação JWT
 - **SQLite** - Banco de dados (desenvolvimento)
 - **Pillow** - Manipulação de imagens
+- **django-cors-headers** - CORS para permitir requisições do frontend
 - **pytest** + **pytest-django** - Testes unitários
 - **pytest-cov** - Cobertura de testes
 - **model-bakery** - Geração de dados de teste
+- **drf-spectacular** - Documentação Swagger/OpenAPI automática
 
 ## 📋 Funcionalidades
 
@@ -106,7 +108,7 @@ pip install -r requirements.txt
 
 **Nota:** Se não houver `requirements.txt`, instale manualmente:
 ```bash
-pip install django djangorestframework djangorestframework-simplejwt Pillow pytest pytest-django pytest-cov model-bakery
+pip install django djangorestframework djangorestframework-simplejwt Pillow django-cors-headers pytest pytest-django pytest-cov model-bakery drf-spectacular
 ```
 
 4. **Execute as migrations**
@@ -125,6 +127,21 @@ python manage.py runserver
 ```
 
 O servidor estará disponível em `http://127.0.0.1:8000`
+
+### Documentação Swagger/OpenAPI
+
+Após iniciar o servidor, acesse a documentação interativa:
+
+- **Swagger UI**: `http://127.0.0.1:8000/api/docs/` - Interface interativa para testar a API
+- **ReDoc**: `http://127.0.0.1:8000/api/redoc/` - Documentação alternativa mais limpa
+- **Schema OpenAPI**: `http://127.0.0.1:8000/api/schema/` - JSON/YAML do schema OpenAPI
+
+A documentação é gerada automaticamente a partir do código e inclui:
+- Todos os endpoints com descrições
+- Schemas de request/response
+- Parâmetros de query e filtros
+- Autenticação JWT (botão "Authorize" no Swagger)
+- Exemplos de uso
 
 ## 📁 Estrutura do Projeto
 
@@ -187,7 +204,7 @@ Após executar com `--cov-report=html`, abra `htmlcov/index.html` no navegador.
 ### Autenticação
 - `POST /api/auth/login/` - Login (retorna access + refresh tokens)
 - `POST /api/auth/refresh/` - Renovar access token usando refresh token
-- `GET /api/auth/me/` - Dados do usuário autenticado
+- `GET /api/auth/me/` - Dados do usuário autenticado (id, username, email, first_name, last_name)
 
 ### Ferramentas
 - `GET /api/tools/` - Listar todas (com filtros e paginação)
@@ -261,6 +278,12 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/tools/
 - Arquivos de mídia salvos em `media/tools/`
 - Acessíveis via `/media/tools/<nome_arquivo>`
 
+### CORS (Cross-Origin Resource Sharing)
+- Configurado para permitir requisições do frontend em desenvolvimento
+- Origens permitidas: `http://localhost:5173` e `http://127.0.0.1:5173` (Vite dev server)
+- Credenciais habilitadas para autenticação JWT
+- **Importante:** Em produção, atualize `CORS_ALLOWED_ORIGINS` no `settings.py` com a URL do frontend em produção
+
 ### Validações de Aluguel
 - **Data inicial**: Não pode ser no passado
 - **Data final**: Deve ser >= data inicial
@@ -282,6 +305,13 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/tools/
 ### Erro ao fazer upload de imagem
 - Verifique se a pasta `media/` existe
 - Verifique permissões de escrita
+
+### Erro de CORS ao conectar frontend
+- Verifique se `django-cors-headers` está instalado: `pip install django-cors-headers`
+- Verifique se `corsheaders` está em `INSTALLED_APPS` no `settings.py`
+- Verifique se `CorsMiddleware` está no `MIDDLEWARE` (deve vir antes de `CommonMiddleware`)
+- Verifique se a URL do frontend está em `CORS_ALLOWED_ORIGINS` no `settings.py`
+- Reinicie o servidor Django após alterações no `settings.py`
 
 ## 📄 Licença
 

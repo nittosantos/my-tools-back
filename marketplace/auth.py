@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -11,6 +12,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
+@extend_schema(
+    summary="Login",
+    description="Autenticação JWT. Retorna access_token (válido por 12h) e refresh_token (válido por 7 dias). Também retorna dados do usuário.",
+    tags=["Autenticação"],
+)
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 

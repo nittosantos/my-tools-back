@@ -30,12 +30,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_spectacular',  # Swagger/OpenAPI documentation
+    'corsheaders',  # CORS headers para permitir requisições do frontend
     'marketplace',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS middleware (deve vir antes de CommonMiddleware)
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -125,9 +128,49 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     # 9 itens por página (3 linhas x 3 colunas no grid) para alinhar com o frontend
     'PAGE_SIZE': 9,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=12),  # dura 12 horas
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),   # dura 7 dias
 }
+
+# Configurações do drf-spectacular (Swagger/OpenAPI)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'My Tools API',
+    'DESCRIPTION': 'API REST para marketplace de aluguel de ferramentas. Sistema desenvolvido em Django REST Framework.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,  # Permite multipart/form-data
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'TAGS': [
+        {'name': 'Autenticação', 'description': 'Endpoints de autenticação JWT'},
+        {'name': 'Ferramentas', 'description': 'CRUD de ferramentas disponíveis para aluguel'},
+        {'name': 'Aluguéis', 'description': 'Gerenciamento de aluguéis de ferramentas'},
+    ],
+}
+
+# Configuração CORS - Permite requisições do frontend
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Vite dev server (porta padrão)
+    "http://127.0.0.1:5173",  # Vite dev server (IP local)
+    "http://localhost:3000",  # Caso use outra porta
+    "http://127.0.0.1:3000",  # Caso use outra porta
+]
+
+# Permite credenciais (cookies, headers de autenticação)
+CORS_ALLOW_CREDENTIALS = True
+
+# Headers permitidos
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]

@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db.models import Q
 from django.utils import timezone
 
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -15,9 +16,42 @@ from .serializers import (
     ToolSerializer,
     RentalSerializer,
     RentalCreateSerializer,
+    UserSerializer,
 )
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="Listar ferramentas",
+        description="Lista todas as ferramentas disponíveis com suporte a filtros, busca, ordenação e paginação.",
+        tags=["Ferramentas"],
+    ),
+    retrieve=extend_schema(
+        summary="Detalhes da ferramenta",
+        description="Retorna os detalhes completos de uma ferramenta específica.",
+        tags=["Ferramentas"],
+    ),
+    create=extend_schema(
+        summary="Criar ferramenta",
+        description="Cria uma nova ferramenta. Apenas usuários autenticados podem criar. O owner é definido automaticamente como o usuário autenticado.",
+        tags=["Ferramentas"],
+    ),
+    update=extend_schema(
+        summary="Atualizar ferramenta",
+        description="Atualiza uma ferramenta existente. Apenas o dono da ferramenta pode atualizar.",
+        tags=["Ferramentas"],
+    ),
+    partial_update=extend_schema(
+        summary="Atualizar ferramenta (parcial)",
+        description="Atualiza parcialmente uma ferramenta. Apenas o dono da ferramenta pode atualizar.",
+        tags=["Ferramentas"],
+    ),
+    destroy=extend_schema(
+        summary="Deletar ferramenta",
+        description="Deleta uma ferramenta. Apenas o dono da ferramenta pode deletar.",
+        tags=["Ferramentas"],
+    ),
+)
 class ToolViewSet(ModelViewSet):
     queryset = Tool.objects.all()
     serializer_class = ToolSerializer
@@ -58,6 +92,11 @@ class ToolViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    @extend_schema(
+        summary="Minhas ferramentas",
+        description="Lista todas as ferramentas do usuário autenticado.",
+        tags=["Ferramentas"],
+    )
     @action(detail=False, methods=["get"], url_path="my")
     def my_tools(self, request):
         queryset = self.get_queryset().filter(owner=request.user)
@@ -70,6 +109,23 @@ class ToolViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="Listar aluguéis",
+        description="Lista aluguéis onde o usuário é renter ou owner da ferramenta.",
+        tags=["Aluguéis"],
+    ),
+    retrieve=extend_schema(
+        summary="Detalhes do aluguel",
+        description="Retorna os detalhes completos de um aluguel específico.",
+        tags=["Aluguéis"],
+    ),
+    create=extend_schema(
+        summary="Criar aluguel",
+        description="Cria uma solicitação de aluguel. Valida disponibilidade, datas e conflitos. Bloqueia a ferramenta automaticamente.",
+        tags=["Aluguéis"],
+    ),
+)
 class RentalViewSet(ModelViewSet):
     queryset = Rental.objects.all()
     serializer_class = RentalSerializer
@@ -144,6 +200,11 @@ class RentalViewSet(ModelViewSet):
         if rental.status != "pending":
             raise ValidationError("Apenas aluguéis pendentes podem ser alterados.")
 
+    @extend_schema(
+        summary="Meus aluguéis",
+        description="Lista aluguéis onde o usuário autenticado é o locatário (renter).",
+        tags=["Aluguéis"],
+    )
     @action(detail=False, methods=["get"], url_path="my")
     def my_rentals(self, request):
         queryset = self.get_queryset().filter(renter=request.user)
@@ -155,6 +216,11 @@ class RentalViewSet(ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Aluguéis recebidos",
+        description="Lista aluguéis recebidos (onde o usuário autenticado é o owner da ferramenta).",
+        tags=["Aluguéis"],
+    )
     @action(detail=False, methods=["get"], url_path="received")
     def received_rentals(self, request):
         queryset = self.get_queryset().filter(tool__owner=request.user)
@@ -166,6 +232,11 @@ class RentalViewSet(ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Aprovar aluguel",
+        description="Aprova uma solicitação de aluguel. Apenas o owner da ferramenta pode aprovar. A ferramenta permanece bloqueada.",
+        tags=["Aluguéis"],
+    )
     @action(detail=True, methods=["patch"])
     def approve(self, request, pk=None):
         rental = self.get_object()
@@ -180,6 +251,11 @@ class RentalViewSet(ModelViewSet):
         serializer = self.get_serializer(rental)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Rejeitar aluguel",
+        description="Rejeita uma solicitação de aluguel. Apenas o owner da ferramenta pode rejeitar. A ferramenta é liberada automaticamente.",
+        tags=["Aluguéis"],
+    )
     @action(detail=True, methods=["patch"])
     def reject(self, request, pk=None):
         rental = self.get_object()
@@ -194,6 +270,11 @@ class RentalViewSet(ModelViewSet):
         serializer = self.get_serializer(rental)
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Finalizar aluguel",
+        description="Finaliza um aluguel aprovado. Tanto o owner da ferramenta quanto o renter podem finalizar. A ferramenta é liberada automaticamente.",
+        tags=["Aluguéis"],
+    )
     @action(detail=True, methods=["patch"])
     def finish(self, request, pk=None):
         rental = self.get_object()
@@ -216,13 +297,14 @@ class RentalViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
+@extend_schema(
+    summary="Dados do usuário autenticado",
+    description="Retorna os dados do usuário autenticado (id, username, email, first_name, last_name).",
+    tags=["Autenticação"],
+    responses={200: UserSerializer},
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me(request):
-    user = request.user
-
-    return Response({
-        "id": user.id,
-        "username": user.username,
-        "email": user.email,
-    })
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)

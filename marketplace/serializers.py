@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Tool, Rental
@@ -35,6 +36,7 @@ class ToolSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["owner", "created_at", "is_available"]
 
+    @extend_schema_field(serializers.URLField(allow_null=True))
     def get_image_url(self, obj):
         if not obj.photo:
             return None
@@ -69,6 +71,7 @@ class RentalSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["renter", "total_price", "created_at"]
 
+    @extend_schema_field(ToolSerializer)
     def get_tool_details(self, obj):
         return ToolSerializer(obj.tool, context=self.context).data
 
