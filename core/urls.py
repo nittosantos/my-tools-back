@@ -11,8 +11,10 @@ from drf_spectacular.views import (
 )
 
 from marketplace.auth import CustomTokenObtainPairView
+from core.views import home
 
 urlpatterns = [
+    path('', home, name='home'),
     path('admin/', admin.site.urls),
 
     # Rotas do app marketplace
