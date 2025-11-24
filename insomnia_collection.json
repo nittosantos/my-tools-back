@@ -591,6 +591,34 @@
       "_type": "request"
     },
     {
+      "_id": "req_rentals_finish",
+      "parentId": "fld_rentals",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/rentals/{{ _.rental_id }}/finish/",
+      "name": "Finalizar Aluguel",
+      "description": "Finaliza um aluguel aprovado (owner ou renter podem finalizar). Libera a ferramenta automaticamente.",
+      "method": "PATCH",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067184000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
       "_id": "fld_auth",
       "parentId": "wrk_main",
       "modified": 1704067200000,

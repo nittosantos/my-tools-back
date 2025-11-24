@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db.models import Q
+from django.utils import timezone
 
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -89,16 +90,41 @@ class RentalViewSet(ModelViewSet):
         tool = serializer.validated_data["tool"]
         start_date = serializer.validated_data["start_date"]
         end_date = serializer.validated_data["end_date"]
+        today = timezone.now().date()
 
-        if not tool.is_available:
-            raise ValidationError("Esta ferramenta não está disponível para aluguel.")
+        # Validação 1: Data inicial não pode ser no passado
+        if start_date < today:
+            raise ValidationError("A data inicial não pode ser no passado.")
 
+        # Validação 2: Data final deve ser maior ou igual à data inicial
         if end_date < start_date:
             raise ValidationError("A data final deve ser maior ou igual à data inicial.")
 
+        # Validação 3: Período válido
         days = (end_date - start_date).days + 1
         if days <= 0:
             raise ValidationError("Período de aluguel inválido.")
+
+        # Validação 4: Verificar conflito com outros aluguéis aprovados ou pendentes
+        # Um aluguel conflita se:
+        # - O período se sobrepõe (start_date <= outro.end_date AND end_date >= outro.start_date)
+        # - E o status é 'pending' ou 'approved'
+        conflicting_rentals = Rental.objects.filter(
+            tool=tool,
+            status__in=["pending", "approved"]
+        ).filter(
+            Q(start_date__lte=end_date) & Q(end_date__gte=start_date)
+        )
+
+        if conflicting_rentals.exists():
+            raise ValidationError(
+                "Já existe um aluguel aprovado ou pendente para este período. "
+                "Escolha outras datas."
+            )
+
+        # Validação 5: Ferramenta deve estar disponível
+        if not tool.is_available:
+            raise ValidationError("Esta ferramenta não está disponível para aluguel.")
 
         total_price = (tool.price_per_day or Decimal("0")) * days
 
@@ -161,6 +187,27 @@ class RentalViewSet(ModelViewSet):
         self._ensure_pending(rental)
 
         rental.status = "rejected"
+        rental.tool.is_available = True
+        rental.tool.save(update_fields=["is_available"])
+        rental.save(update_fields=["status"])
+
+        serializer = self.get_serializer(rental)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["patch"])
+    def finish(self, request, pk=None):
+        rental = self.get_object()
+        user = request.user
+
+        # Apenas o owner da ferramenta ou o renter podem finalizar
+        if rental.tool.owner != user and rental.renter != user:
+            raise PermissionDenied("Você não tem permissão para finalizar este aluguel.")
+
+        # Apenas aluguéis aprovados podem ser finalizados
+        if rental.status != "approved":
+            raise ValidationError("Apenas aluguéis aprovados podem ser finalizados.")
+
+        rental.status = "finished"
         rental.tool.is_available = True
         rental.tool.save(update_fields=["is_available"])
         rental.save(update_fields=["status"])
