@@ -1,6 +1,6 @@
-# 🛠️ Marketplace de Aluguel de Ferramentas - Backend
+# 🛠️ My Tools - Backend
 
-Backend desenvolvido em Django + Django REST Framework para o sistema de marketplace de aluguel de ferramentas.
+Backend desenvolvido em Django + Django REST Framework para o sistema My Tools - marketplace de aluguel de ferramentas.
 
 ## 🚀 Stack Tecnológica
 
@@ -18,6 +18,7 @@ Backend desenvolvido em Django + Django REST Framework para o sistema de marketp
 ### ✅ Autenticação
 - Login com JWT (access + refresh tokens)
 - Endpoint `/api/auth/login/` para autenticação
+- Endpoint `/api/auth/refresh/` para renovar access token
 - Endpoint `/api/auth/me/` para obter dados do usuário autenticado
 - Tokens com validade configurável (access: 12h, refresh: 7 dias)
 
@@ -30,23 +31,29 @@ Backend desenvolvido em Django + Django REST Framework para o sistema de marketp
 - **Deletar ferramenta** (`DELETE /api/tools/:id/`) - Apenas o dono pode deletar
 - **Visualizar detalhes** (`GET /api/tools/:id/`)
 
-### 🔍 Filtros e Paginação
+### 🔍 Filtros, Busca e Paginação
 - **Filtro por categoria** - `GET /api/tools/?category=construcao` (suporta múltiplas)
 - **Filtro por estado** - `GET /api/tools/?state=SP`
-- **Filtro por cidade** - `GET /api/tools/?city=São Paulo`
-- **Paginação** - 10 itens por página (configurável)
-- **Combinação de filtros** - `GET /api/tools/?category=construcao&state=SP&city=São Paulo&page=1`
+- **Filtro por cidade** - `GET /api/tools/?city=São Paulo` (busca parcial)
+- **Busca textual** - `GET /api/tools/?search=furadeira` (busca em título e descrição)
+- **Ordenação** - `GET /api/tools/?ordering=price_per_day` ou `?ordering=-price_per_day`
+- **Paginação** - 9 itens por página (3 linhas x 3 colunas)
+- **Combinação de filtros** - `GET /api/tools/?category=construcao&state=SP&city=São Paulo&search=furadeira&ordering=-price_per_day&page=1`
 
 ### 📦 Aluguéis (Rentals)
 - **Criar aluguel** (`POST /api/rentals/`) - Com validações:
   - Ferramenta deve estar disponível
+  - Data inicial não pode ser no passado
   - Datas válidas (fim >= início)
+  - Verificação de conflito com outros aluguéis aprovados/pendentes
   - Cálculo automático do preço total
   - Bloqueio automático da ferramenta durante o período
 - **Listar meus aluguéis** (`GET /api/rentals/my/`) - Aluguéis criados pelo usuário
 - **Listar aluguéis recebidos** (`GET /api/rentals/received/`) - Solicitações para minhas ferramentas
+- **Detalhes do aluguel** (`GET /api/rentals/:id/`) - Visualizar detalhes completos
 - **Aprovar aluguel** (`PATCH /api/rentals/:id/approve/`) - Apenas o dono da ferramenta
-- **Rejeitar aluguel** (`PATCH /api/rentals/:id/reject/`) - Apenas o dono da ferramenta
+- **Rejeitar aluguel** (`PATCH /api/rentals/:id/reject/`) - Apenas o dono da ferramenta (libera ferramenta)
+- **Finalizar aluguel** (`PATCH /api/rentals/:id/finish/`) - Owner ou renter podem finalizar (libera ferramenta)
 - **Status do aluguel**: `pending`, `approved`, `rejected`, `finished`
 
 ### 🏷️ Categorias
@@ -169,13 +176,17 @@ venv\Scripts\python.exe -m pytest --cov=marketplace --cov-report=html
 Após executar com `--cov-report=html`, abra `htmlcov/index.html` no navegador.
 
 ### Cobertura Atual
-- **95.22%** de cobertura de código
+- **+54 testes** cobrindo todas as rotas e funcionalidades
+- Testes de validações (data passada, conflito de datas)
+- Testes de filtros, busca e ordenação
+- Testes de permissões e edge cases
 - Todos os modelos, views, serializers e permissions testados
 
 ## 📡 Endpoints da API
 
 ### Autenticação
 - `POST /api/auth/login/` - Login (retorna access + refresh tokens)
+- `POST /api/auth/refresh/` - Renovar access token usando refresh token
 - `GET /api/auth/me/` - Dados do usuário autenticado
 
 ### Ferramentas
@@ -188,11 +199,13 @@ Após executar com `--cov-report=html`, abra `htmlcov/index.html` no navegador.
 
 ### Aluguéis
 - `GET /api/rentals/` - Listar aluguéis (do usuário ou recebidos)
+- `GET /api/rentals/:id/` - Detalhes de um aluguel específico
 - `GET /api/rentals/my/` - Listar meus aluguéis
 - `GET /api/rentals/received/` - Listar aluguéis recebidos
 - `POST /api/rentals/` - Criar aluguel
 - `PATCH /api/rentals/:id/approve/` - Aprovar aluguel
 - `PATCH /api/rentals/:id/reject/` - Rejeitar aluguel
+- `PATCH /api/rentals/:id/finish/` - Finalizar aluguel
 
 ## 🔐 Autenticação
 
@@ -236,16 +249,25 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/tools/
 ## 🔧 Configurações Importantes
 
 ### Paginação
-- **PAGE_SIZE**: 9 itens por página
+- **PAGE_SIZE**: 9 itens por página (3 linhas x 3 colunas)
 - Configurado em `core/settings.py`
 
 ### JWT
 - **ACCESS_TOKEN_LIFETIME**: 12 horas
 - **REFRESH_TOKEN_LIFETIME**: 7 dias
+- Refresh token automático no frontend
 
 ### Mídia
 - Arquivos de mídia salvos em `media/tools/`
 - Acessíveis via `/media/tools/<nome_arquivo>`
+
+### Validações de Aluguel
+- **Data inicial**: Não pode ser no passado
+- **Data final**: Deve ser >= data inicial
+- **Conflito de datas**: Não permite criar aluguel se já existe outro aprovado/pendente no mesmo período
+- **Disponibilidade**: Ferramenta deve estar disponível
+- **Cálculo automático**: Preço total calculado automaticamente (preço por dia × dias)
+- **Bloqueio automático**: Ferramenta é bloqueada ao criar aluguel e liberada ao finalizar/rejeitar
 
 ## 🐛 Troubleshooting
 
