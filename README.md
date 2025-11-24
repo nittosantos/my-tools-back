@@ -236,7 +236,7 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/tools/
 ## 🔧 Configurações Importantes
 
 ### Paginação
-- **PAGE_SIZE**: 10 itens por página
+- **PAGE_SIZE**: 9 itens por página
 - Configurado em `core/settings.py`
 
 ### JWT
@@ -267,7 +267,7 @@ Este é um projeto acadêmico desenvolvido para a FATEC.
 
 ## 👥 Desenvolvido por
 
-[Seu nome/equipe]
+Nitto Dev
 
 ---
 
