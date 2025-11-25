@@ -314,47 +314,91 @@ def me(request):
 
 
 @extend_schema(
-    summary="Criar usuário (temporário - apenas para setup inicial)",
-    description="Endpoint temporário para criar usuário normal. Use apenas para setup inicial.",
+    summary="Registrar novo usuário",
+    description="Cria uma nova conta de usuário. Após o registro, use o endpoint de login para obter o token JWT.",
     tags=["Autenticação"],
     request={
         'application/json': {
             'type': 'object',
             'properties': {
-                'username': {'type': 'string'},
-                'email': {'type': 'string'},
-                'password': {'type': 'string'},
+                'username': {'type': 'string', 'description': 'Nome de usuário único'},
+                'email': {'type': 'string', 'format': 'email', 'description': 'Email do usuário'},
+                'password': {'type': 'string', 'format': 'password', 'description': 'Senha do usuário'},
+                'first_name': {'type': 'string', 'description': 'Primeiro nome (opcional)'},
+                'last_name': {'type': 'string', 'description': 'Sobrenome (opcional)'},
             },
             'required': ['username', 'email', 'password'],
         }
     },
+    responses={
+        201: UserSerializer,
+        400: {'description': 'Dados inválidos ou usuário já existe'}
+    },
 )
 @api_view(["POST"])
-def create_user(request):
-    """Endpoint temporário para criar usuário normal"""
+def register(request):
+    """Endpoint para registro de novos usuários"""
     from django.contrib.auth import get_user_model
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+    
     User = get_user_model()
     
-    username = request.data.get('username')
-    email = request.data.get('email')
+    username = request.data.get('username', '').strip()
+    email = request.data.get('email', '').strip()
     password = request.data.get('password')
+    first_name = request.data.get('first_name', '').strip()
+    last_name = request.data.get('last_name', '').strip()
     
-    if not all([username, email, password]):
+    # Validações
+    if not username:
         return Response(
-            {'error': 'username, email e password são obrigatórios'},
+            {'error': 'username é obrigatório'},
             status=400
         )
     
+    if not email:
+        return Response(
+            {'error': 'email é obrigatório'},
+            status=400
+        )
+    
+    if not password:
+        return Response(
+            {'error': 'password é obrigatório'},
+            status=400
+        )
+    
+    # Validar formato do email
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response(
+            {'error': 'Email inválido'},
+            status=400
+        )
+    
+    # Verificar se usuário já existe
     if User.objects.filter(username=username).exists():
         return Response(
-            {'error': 'Usuário já existe'},
+            {'error': 'Nome de usuário já está em uso'},
             status=400
         )
     
+    # Verificar se email já existe
+    if User.objects.filter(email=email).exists():
+        return Response(
+            {'error': 'Email já está cadastrado'},
+            status=400
+        )
+    
+    # Criar usuário normal (não superusuário)
     user = User.objects.create_user(
         username=username,
         email=email,
-        password=password
+        password=password,
+        first_name=first_name,
+        last_name=last_name
     )
     
     serializer = UserSerializer(user)
