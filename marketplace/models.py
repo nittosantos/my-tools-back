@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from cloudinary.models import CloudinaryField
 
 
 class Tool(models.Model):
@@ -25,7 +26,7 @@ class Tool(models.Model):
     description = models.TextField()
     category = models.CharField(max_length=50, choices=CATEGORIES)
     price_per_day = models.DecimalField(max_digits=8, decimal_places=2)
-    photo = models.ImageField(upload_to="tools/")
+    photo = CloudinaryField('image', folder='tools')
     state = models.CharField(max_length=2, blank=True, null=True, help_text="Estado (UF) - ex: SP, RJ, MG")
     city = models.CharField(max_length=100, blank=True, null=True, help_text="Cidade - ex: São Paulo, Rio de Janeiro")
     is_available = models.BooleanField(default=True)

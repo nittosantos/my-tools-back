@@ -1,6 +1,11 @@
 from pathlib import Path
 import os
 from datetime import timedelta
+import dj_database_url
+from dotenv import load_dotenv
+
+# Carrega variáveis de ambiente do arquivo .env
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,12 +15,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ix0_4s(+i-ybcky^+hg&3r@t_o#t((_i4fbnq7&7opf8%iz+*='
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ix0_4s(+i-ybcky^+hg&3r@t_o#t((_i4fbnq7&7opf8%iz+*=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else ['*']
 
 
 # Application definition
@@ -28,15 +33,18 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'cloudinary_storage',  # Cloudinary para armazenamento de mídia (deve vir antes de staticfiles)
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_spectacular',  # Swagger/OpenAPI documentation
     'corsheaders',  # CORS headers para permitir requisições do frontend
+    'cloudinary',  # SDK do Cloudinary
     'marketplace',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise para servir arquivos estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # CORS middleware (deve vir antes de CommonMiddleware)
     'django.middleware.common.CommonMiddleware',
@@ -69,12 +77,19 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Usa DATABASE_URL se disponível (Railway fornece isso), senão usa SQLite para desenvolvimento
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL)
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -112,17 +127,50 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # Diretório onde os arquivos estáticos serão coletados
+
 STATICFILES_DIRS = [
     BASE_DIR / 'core' / 'static',
 ]
+
+# WhiteNoise para servir arquivos estáticos em produção
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Configuração de Mídia (Imagens)
+# Configuração do Cloudinary
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', '')
+
+# Se Cloudinary estiver configurado, configura o Cloudinary
+if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    import cloudinary
+    import cloudinary.uploader
+    import cloudinary.api
+    
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET
+    )
+    
+    # Configuração para django-cloudinary-storage (caso ainda use ImageField em outros lugares)
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
+        'API_KEY': CLOUDINARY_API_KEY,
+        'API_SECRET': CLOUDINARY_API_SECRET,
+    }
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    MEDIA_URL = '/media/'
+else:
+    # Usa armazenamento local (desenvolvimento)
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -155,12 +203,18 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Configuração CORS - Permite requisições do frontend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite dev server (porta padrão)
-    "http://127.0.0.1:5173",  # Vite dev server (IP local)
-    "http://localhost:3000",  # Caso use outra porta
-    "http://127.0.0.1:3000",  # Caso use outra porta
-]
+# Em produção, use variável de ambiente CORS_ALLOWED_ORIGINS separada por vírgula
+CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if CORS_ALLOWED_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_ENV.split(',')]
+else:
+    # Desenvolvimento local
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",  # Vite dev server (porta padrão)
+        "http://127.0.0.1:5173",  # Vite dev server (IP local)
+        "http://localhost:3000",  # Caso use outra porta
+        "http://127.0.0.1:3000",  # Caso use outra porta
+    ]
 
 # Permite credenciais (cookies, headers de autenticação)
 CORS_ALLOW_CREDENTIALS = True
