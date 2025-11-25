@@ -311,3 +311,51 @@ class RentalViewSet(ModelViewSet):
 def me(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
+
+
+@extend_schema(
+    summary="Criar usuário (temporário - apenas para setup inicial)",
+    description="Endpoint temporário para criar usuário normal. Use apenas para setup inicial.",
+    tags=["Autenticação"],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string'},
+                'email': {'type': 'string'},
+                'password': {'type': 'string'},
+            },
+            'required': ['username', 'email', 'password'],
+        }
+    },
+)
+@api_view(["POST"])
+def create_user(request):
+    """Endpoint temporário para criar usuário normal"""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    username = request.data.get('username')
+    email = request.data.get('email')
+    password = request.data.get('password')
+    
+    if not all([username, email, password]):
+        return Response(
+            {'error': 'username, email e password são obrigatórios'},
+            status=400
+        )
+    
+    if User.objects.filter(username=username).exists():
+        return Response(
+            {'error': 'Usuário já existe'},
+            status=400
+        )
+    
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        password=password
+    )
+    
+    serializer = UserSerializer(user)
+    return Response(serializer.data, status=201)
