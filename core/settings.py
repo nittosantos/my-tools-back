@@ -196,6 +196,13 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,  # Permite multipart/form-data
     'SCHEMA_PATH_PREFIX': '/api/',
+    # Servidores disponíveis no Swagger (permite alternar entre ambientes)
+    'SERVERS': [
+        {
+            'url': os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'http://127.0.0.1:8000'),
+            'description': 'Servidor de produção' if os.environ.get('RAILWAY_PUBLIC_DOMAIN') else 'Servidor local'
+        },
+    ],
     'TAGS': [
         {'name': 'Autenticação', 'description': 'Endpoints de autenticação JWT'},
         {'name': 'Ferramentas', 'description': 'CRUD de ferramentas disponíveis para aluguel'},
