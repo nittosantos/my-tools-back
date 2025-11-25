@@ -5,6 +5,37 @@
   "__export_source": "insomnia.desktop.app:v2023.5.8",
   "resources": [
     {
+      "_id": "req_auth_register",
+      "parentId": "fld_auth",
+      "modified": 1704067200000,
+      "created": 1704067200000,
+      "url": "{{ _.base_url }}/api/auth/register/",
+      "name": "Registrar Usuário",
+      "description": "Cria uma nova conta de usuário. Após o registro, use o endpoint de login para obter o token JWT.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"usuario_teste\",\n  \"email\": \"usuario@exemplo.com\",\n  \"password\": \"senha123\",\n  \"first_name\": \"Nome\",\n  \"last_name\": \"Sobrenome\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1704067201000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
       "_id": "req_auth_login",
       "parentId": "fld_auth",
       "modified": 1704067200000,
