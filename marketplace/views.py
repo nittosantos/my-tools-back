@@ -86,6 +86,9 @@ class ToolViewSet(ModelViewSet):
         ordering = self.request.query_params.get("ordering")
         if ordering in ["created_at", "-created_at", "price_per_day", "-price_per_day"]:
             queryset = queryset.order_by(ordering)
+        else:
+            # Ordenação padrão para evitar warnings de paginação
+            queryset = queryset.order_by("-created_at")
 
         return queryset
 
@@ -135,7 +138,7 @@ class RentalViewSet(ModelViewSet):
         user = self.request.user
         return Rental.objects.select_related("tool", "renter", "tool__owner").filter(
             Q(renter=user) | Q(tool__owner=user)
-        )
+        ).order_by("-created_at")
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -148,20 +151,24 @@ class RentalViewSet(ModelViewSet):
         end_date = serializer.validated_data["end_date"]
         today = timezone.now().date()
 
-        # Validação 1: Data inicial não pode ser no passado
+        # Validação 1: Ferramenta deve estar disponível (verificar primeiro)
+        if not tool.is_available:
+            raise ValidationError("Esta ferramenta não está disponível para aluguel.")
+
+        # Validação 2: Data inicial não pode ser no passado
         if start_date < today:
             raise ValidationError("A data inicial não pode ser no passado.")
 
-        # Validação 2: Data final deve ser maior ou igual à data inicial
+        # Validação 3: Data final deve ser maior ou igual à data inicial
         if end_date < start_date:
             raise ValidationError("A data final deve ser maior ou igual à data inicial.")
 
-        # Validação 3: Período válido
+        # Validação 4: Período válido
         days = (end_date - start_date).days + 1
         if days <= 0:
             raise ValidationError("Período de aluguel inválido.")
 
-        # Validação 4: Verificar conflito com outros aluguéis aprovados ou pendentes
+        # Validação 5: Verificar conflito com outros aluguéis aprovados ou pendentes
         # Um aluguel conflita se:
         # - O período se sobrepõe (start_date <= outro.end_date AND end_date >= outro.start_date)
         # - E o status é 'pending' ou 'approved'
@@ -177,10 +184,6 @@ class RentalViewSet(ModelViewSet):
                 "Já existe um aluguel aprovado ou pendente para este período. "
                 "Escolha outras datas."
             )
-
-        # Validação 5: Ferramenta deve estar disponível
-        if not tool.is_available:
-            raise ValidationError("Esta ferramenta não está disponível para aluguel.")
 
         total_price = (tool.price_per_day or Decimal("0")) * days
 

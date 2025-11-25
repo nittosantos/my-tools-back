@@ -9,11 +9,13 @@ from marketplace.models import Rental, Tool
 
 @pytest.mark.django_db
 def test_create_rental_calculates_total_and_blocks_tool(auth_client, owner_user):
+    from django.utils import timezone
     tool = baker.make(Tool, owner=owner_user, price_per_day=Decimal("50.00"))
+    today = timezone.now().date()
     payload = {
         "tool_id": tool.id,
-        "start_date": date.today().isoformat(),
-        "end_date": (date.today() + timedelta(days=2)).isoformat(),
+        "start_date": today.isoformat(),
+        "end_date": (today + timedelta(days=2)).isoformat(),
     }
 
     response = auth_client.post("/api/rentals/", data=payload, format="json")
@@ -79,11 +81,13 @@ def test_owner_can_reject_rental_and_release_tool(owner_client, owner_user, user
 
 @pytest.mark.django_db
 def test_create_rental_fails_when_tool_unavailable(auth_client, owner_user):
+    from django.utils import timezone
     tool = baker.make(Tool, owner=owner_user, is_available=False)
+    today = timezone.now().date()
     payload = {
         "tool_id": tool.id,
-        "start_date": date.today().isoformat(),
-        "end_date": (date.today() + timedelta(days=2)).isoformat(),
+        "start_date": today.isoformat(),
+        "end_date": (today + timedelta(days=2)).isoformat(),
     }
 
     response = auth_client.post("/api/rentals/", data=payload, format="json")
@@ -157,22 +161,22 @@ def test_create_rental_with_zero_days_edge_case(auth_client, owner_user):
         "start_date": today.isoformat(),
         "end_date": today.isoformat(),  # Mesmo dia = 1 dia, válido
     }
-    
+
     # Este caso é válido (1 dia), mas vamos testar o fluxo
     response = auth_client.post("/api/rentals/", data=payload, format="json")
     # Deve funcionar porque days = 1 (não <= 0)
     assert response.status_code in [201, 400]  # Pode ser válido ou inválido dependendo da validação
 
 
-@pytest.mark.django_db  
+@pytest.mark.django_db
 def test_ensure_tool_owner_raises_permission_denied(auth_client, owner_user, user):
     """Testa que _ensure_tool_owner levanta PermissionDenied (linha 83 views.py)"""
     tool = baker.make(Tool, owner=owner_user)
     rental = baker.make(Rental, tool=tool, renter=user, status="pending")
-    
+
     # Usuário que não é owner tenta aprovar
     response = auth_client.patch(f"/api/rentals/{rental.id}/approve/")
-    
+
     # Deve retornar 403 (PermissionDenied)
     assert response.status_code == 403
 
@@ -192,4 +196,3 @@ def test_reject_rental_fails_when_not_pending(owner_client, owner_user, user):
     else:
         error_str = str(error_data).lower()
         assert "pendente" in error_str
-

@@ -27,5 +27,8 @@ class IsRentalParticipant(BasePermission):
         if getattr(view, "action", None) in {"approve", "reject"}:
             return obj.tool.owner == request.user
 
-        return obj.renter == request.user
+        # Para ação de finalizar, owner ou renter podem finalizar
+        if getattr(view, "action", None) == "finish":
+            return obj.renter == request.user or obj.tool.owner == request.user
 
+        return obj.renter == request.user

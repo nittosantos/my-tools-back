@@ -53,6 +53,12 @@ def owner_client(api_client, owner_user):
 
 
 @pytest.fixture
+def other_client(api_client, other_user):
+    api_client.force_authenticate(user=other_user)
+    return api_client
+
+
+@pytest.fixture
 def tool(owner_user) -> Tool:
     return baker.make(Tool, owner=owner_user, is_available=True)
 
@@ -65,4 +71,3 @@ def tool_factory(owner_user):
         return baker.make(Tool, **defaults)
 
     return _factory
-

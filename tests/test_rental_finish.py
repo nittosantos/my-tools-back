@@ -37,22 +37,23 @@ def test_renter_can_finish_rental(auth_client, owner_user, user):
 
 
 @pytest.mark.django_db
-def test_finish_rental_denied_for_non_participant(auth_client, owner_user, user, other_user):
+def test_finish_rental_denied_for_non_participant(other_client, owner_user, user):
     """Testa que apenas owner ou renter podem finalizar"""
     tool = baker.make(Tool, owner=owner_user)
     rental = baker.make(Rental, tool=tool, renter=user, status="approved")
 
     # other_user não é owner nem renter
-    response = auth_client.patch(f"/api/rentals/{rental.id}/finish/")
+    # DRF retorna 404 quando o objeto não está no queryset filtrado (não expõe existência)
+    response = other_client.patch(f"/api/rentals/{rental.id}/finish/")
 
-    assert response.status_code == 403
+    assert response.status_code == 404  # DRF retorna 404 para não expor existência
 
 
 @pytest.mark.django_db
 def test_finish_rental_fails_when_not_approved(owner_client, owner_user, user):
     """Testa que apenas aluguéis aprovados podem ser finalizados"""
     tool = baker.make(Tool, owner=owner_user)
-    
+
     # Testar com status pending
     rental_pending = baker.make(Rental, tool=tool, renter=user, status="pending")
     response = owner_client.patch(f"/api/rentals/{rental_pending.id}/finish/")
@@ -70,4 +71,3 @@ def test_finish_rental_fails_when_not_approved(owner_client, owner_user, user):
     rental_finished = baker.make(Rental, tool=tool, renter=user, status="finished")
     response = owner_client.patch(f"/api/rentals/{rental_finished.id}/finish/")
     assert response.status_code == 400
-

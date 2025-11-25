@@ -36,13 +36,13 @@ def test_get_rental_detail_by_owner(owner_client, owner_user, user):
 
 
 @pytest.mark.django_db
-def test_get_rental_detail_denied_for_non_participant(auth_client, owner_user, user, other_user):
+def test_get_rental_detail_denied_for_non_participant(other_client, owner_user, user):
     """Testa que apenas participantes podem ver o aluguel"""
     tool = baker.make(Tool, owner=owner_user)
     rental = baker.make(Rental, tool=tool, renter=user)
 
     # other_user não é owner nem renter
-    response = auth_client.get(f"/api/rentals/{rental.id}/")
+    response = other_client.get(f"/api/rentals/{rental.id}/")
 
     assert response.status_code == 404  # DRF retorna 404 para não expor existência
 
@@ -53,4 +53,3 @@ def test_get_rental_detail_not_found(auth_client):
     response = auth_client.get("/api/rentals/99999/")
 
     assert response.status_code == 404
-
