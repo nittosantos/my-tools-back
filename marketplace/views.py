@@ -6,7 +6,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -57,6 +57,17 @@ class ToolViewSet(ModelViewSet):
     serializer_class = ToolSerializer
     permission_classes = [IsAuthenticated, IsToolOwnerOrReadOnly]
 
+    def get_permissions(self):
+        """
+        Permite acesso público apenas para listagem (list e retrieve).
+        Para criar, editar ou deletar, exige autenticação.
+        """
+        if self.action in ['list', 'retrieve']:
+            # Acesso público para listar e ver detalhes
+            return [AllowAny()]
+        # Para outras ações (create, update, destroy), exige autenticação
+        return [IsAuthenticated(), IsToolOwnerOrReadOnly()]
+
     def get_queryset(self):
         queryset = super().get_queryset()
 
@@ -100,7 +111,7 @@ class ToolViewSet(ModelViewSet):
         description="Lista todas as ferramentas do usuário autenticado.",
         tags=["Ferramentas"],
     )
-    @action(detail=False, methods=["get"], url_path="my")
+    @action(detail=False, methods=["get"], url_path="my", permission_classes=[IsAuthenticated])
     def my_tools(self, request):
         queryset = self.get_queryset().filter(owner=request.user)
         page = self.paginate_queryset(queryset)
