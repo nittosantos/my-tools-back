@@ -46,7 +46,8 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise para servir arquivos estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # CORS middleware (deve vir antes de CommonMiddleware)
+    'core.middleware.CorsMiddleware',  # Middleware CORS customizado (FORÇA headers CORS)
+    'corsheaders.middleware.CorsMiddleware',  # CORS middleware do django-cors-headers (backup)
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
