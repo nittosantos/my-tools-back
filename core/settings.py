@@ -233,13 +233,17 @@ else:
         "http://127.0.0.1:3000",  # Caso use outra porta
     ]
 
-# Debug: Log das origens permitidas (apenas em desenvolvimento)
+# Debug: Log das origens permitidas
 if DEBUG:
     print(f"[DEBUG] CORS_ALLOWED_ORIGINS: {CORS_ALLOWED_ORIGINS}")
 else:
-    # Em produção, log apenas se não houver origens configuradas
+    # Em produção, sempre log para debug
+    print(f"[CORS] CORS_ALLOWED_ORIGINS_ENV (raw): '{CORS_ALLOWED_ORIGINS_ENV}'")
+    print(f"[CORS] CORS_ALLOWED_ORIGINS (parsed): {CORS_ALLOWED_ORIGINS}")
     if not CORS_ALLOWED_ORIGINS_ENV:
         print("[WARNING] CORS_ALLOWED_ORIGINS não configurado! Usando apenas localhost.")
+    elif not CORS_ALLOWED_ORIGINS:
+        print("[ERROR] CORS_ALLOWED_ORIGINS está vazio após parsing!")
 
 # Permite credenciais (cookies, headers de autenticação)
 CORS_ALLOW_CREDENTIALS = True
