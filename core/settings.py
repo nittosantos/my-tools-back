@@ -217,7 +217,11 @@ SPECTACULAR_SETTINGS = {
 # Em produção, use variável de ambiente CORS_ALLOWED_ORIGINS separada por vírgula
 CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 if CORS_ALLOWED_ORIGINS_ENV:
-    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_ENV.split(',')]
+    # Remove espaços e normaliza URLs (remove barra final se houver)
+    origins = [origin.strip().rstrip('/') for origin in CORS_ALLOWED_ORIGINS_ENV.split(',') if origin.strip()]
+    CORS_ALLOWED_ORIGINS = origins
+    # Também permite com barra final (para garantir compatibilidade)
+    CORS_ALLOWED_ORIGINS.extend([origin + '/' for origin in origins if not origin.endswith('/')])
 else:
     # Desenvolvimento local
     CORS_ALLOWED_ORIGINS = [
@@ -229,6 +233,16 @@ else:
 
 # Permite credenciais (cookies, headers de autenticação)
 CORS_ALLOW_CREDENTIALS = True
+
+# Métodos HTTP permitidos
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 # Headers permitidos
 CORS_ALLOW_HEADERS = [
@@ -243,11 +257,19 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# Expor headers customizados
+CORS_EXPOSE_HEADERS = [
+    'content-type',
+    'x-total-count',
+]
+
 # Configurações de Segurança para Produção
 # Aplicadas apenas quando DEBUG=False (produção)
 if not DEBUG:
-    # HTTPS/SSL
-    SECURE_SSL_REDIRECT = True  # Redireciona HTTP para HTTPS
+    # HTTPS/SSL - Desabilitado temporariamente para evitar conflitos com Railway
+    # O Railway já gerencia HTTPS automaticamente através do proxy reverso
+    # SECURE_SSL_REDIRECT = True  # Comentado para evitar problemas com CORS
+
     SESSION_COOKIE_SECURE = True  # Cookies apenas via HTTPS
     CSRF_COOKIE_SECURE = True  # CSRF cookies apenas via HTTPS
     SECURE_BROWSER_XSS_FILTER = True  # Proteção XSS
