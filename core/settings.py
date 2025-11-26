@@ -44,9 +44,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # CORS middleware (deve vir ANTES de tudo, exceto SecurityMiddleware)
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise para servir arquivos estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS middleware (deve vir antes de CommonMiddleware)
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -277,26 +277,29 @@ CORS_EXPOSE_HEADERS = [
     'x-total-count',
 ]
 
-# Garantir que CORS está ativo (não usar CORS_ALLOW_ALL_ORIGINS em produção)
-CORS_ALLOW_ALL_ORIGINS = False  # Sempre False em produção por segurança
-
 # Configurações de Segurança para Produção
 # Aplicadas apenas quando DEBUG=False (produção)
+# NOTA: Railway já gerencia HTTPS através de proxy reverso
+# Desabilitando configurações que podem interferir com CORS
 if not DEBUG:
-    # HTTPS/SSL - Desabilitado temporariamente para evitar conflitos com Railway
-    # O Railway já gerencia HTTPS automaticamente através do proxy reverso
-    # SECURE_SSL_REDIRECT = True  # Comentado para evitar problemas com CORS
+    # HTTPS/SSL - DESABILITADO: Railway já gerencia HTTPS via proxy reverso
+    # SECURE_SSL_REDIRECT pode causar loops de redirecionamento e quebrar CORS
+    # SECURE_SSL_REDIRECT = True
 
-    SESSION_COOKIE_SECURE = True  # Cookies apenas via HTTPS
-    CSRF_COOKIE_SECURE = True  # CSRF cookies apenas via HTTPS
+    # Cookies seguros - DESABILITADO temporariamente para testar CORS
+    # Se CORS funcionar, pode reativar depois
+    # SESSION_COOKIE_SECURE = True
+    # CSRF_COOKIE_SECURE = True
+
+    # Proteções básicas - mantidas (não interferem com CORS)
     SECURE_BROWSER_XSS_FILTER = True  # Proteção XSS
     SECURE_CONTENT_TYPE_NOSNIFF = True  # Previne MIME type sniffing
     X_FRAME_OPTIONS = 'DENY'  # Previne clickjacking
 
-    # HSTS (HTTP Strict Transport Security) - força HTTPS por 1 ano
-    SECURE_HSTS_SECONDS = 31536000  # 1 ano
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
+    # HSTS - DESABILITADO: Railway já gerencia isso e pode interferir com CORS
+    # SECURE_HSTS_SECONDS = 31536000
+    # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # SECURE_HSTS_PRELOAD = True
 
-    # Previne redirecionamento para sites não confiáveis
+    # Referrer Policy - mantido (não interfere com CORS)
     SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
