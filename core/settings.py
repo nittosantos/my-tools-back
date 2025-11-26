@@ -153,13 +153,13 @@ if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
     import cloudinary
     import cloudinary.uploader
     import cloudinary.api
-    
+
     cloudinary.config(
         cloud_name=CLOUDINARY_CLOUD_NAME,
         api_key=CLOUDINARY_API_KEY,
         api_secret=CLOUDINARY_API_SECRET
     )
-    
+
     # Configuração para django-cloudinary-storage (caso ainda use ImageField em outros lugares)
     CLOUDINARY_STORAGE = {
         'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
@@ -239,3 +239,22 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# Configurações de Segurança para Produção
+# Aplicadas apenas quando DEBUG=False (produção)
+if not DEBUG:
+    # HTTPS/SSL
+    SECURE_SSL_REDIRECT = True  # Redireciona HTTP para HTTPS
+    SESSION_COOKIE_SECURE = True  # Cookies apenas via HTTPS
+    CSRF_COOKIE_SECURE = True  # CSRF cookies apenas via HTTPS
+    SECURE_BROWSER_XSS_FILTER = True  # Proteção XSS
+    SECURE_CONTENT_TYPE_NOSNIFF = True  # Previne MIME type sniffing
+    X_FRAME_OPTIONS = 'DENY'  # Previne clickjacking
+
+    # HSTS (HTTP Strict Transport Security) - força HTTPS por 1 ano
+    SECURE_HSTS_SECONDS = 31536000  # 1 ano
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Previne redirecionamento para sites não confiáveis
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'

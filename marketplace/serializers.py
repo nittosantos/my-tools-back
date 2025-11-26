@@ -36,6 +36,30 @@ class ToolSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["owner", "created_at", "is_available"]
 
+    def validate_photo(self, value):
+        """
+        Valida o tamanho e formato da imagem.
+        Limite: 5MB
+        Formatos permitidos: JPEG, PNG, WEBP
+        """
+        if value:
+            # Limite de 5MB (5 * 1024 * 1024 bytes)
+            max_size = 5 * 1024 * 1024
+            if value.size > max_size:
+                raise serializers.ValidationError(
+                    "A imagem é muito grande. Tamanho máximo permitido: 5MB."
+                )
+
+            # Verificar formato (extensão)
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.webp']
+            file_extension = value.name.lower().split('.')[-1]
+            if f'.{file_extension}' not in valid_extensions:
+                raise serializers.ValidationError(
+                    "Formato de imagem inválido. Use JPEG, PNG ou WEBP."
+                )
+
+        return value
+
     @extend_schema_field(serializers.URLField(allow_null=True))
     def get_image_url(self, obj):
         if not obj.photo:
