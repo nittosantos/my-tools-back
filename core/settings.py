@@ -129,6 +129,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # Diretório onde os arquivos estáticos serão coletados
 
+# Garantir que o diretório staticfiles existe
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+
 STATICFILES_DIRS = [
     BASE_DIR / 'core' / 'static',
 ]
