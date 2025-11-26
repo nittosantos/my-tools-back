@@ -44,9 +44,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS middleware (deve vir ANTES de tudo, exceto SecurityMiddleware)
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise para servir arquivos estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # CORS middleware (deve vir antes de CommonMiddleware)
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -276,6 +276,9 @@ CORS_EXPOSE_HEADERS = [
     'content-type',
     'x-total-count',
 ]
+
+# Garantir que CORS está ativo (não usar CORS_ALLOW_ALL_ORIGINS em produção)
+CORS_ALLOW_ALL_ORIGINS = False  # Sempre False em produção por segurança
 
 # Configurações de Segurança para Produção
 # Aplicadas apenas quando DEBUG=False (produção)
