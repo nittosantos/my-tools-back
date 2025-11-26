@@ -215,13 +215,15 @@ SPECTACULAR_SETTINGS = {
 
 # Configuração CORS - Permite requisições do frontend
 # Em produção, use variável de ambiente CORS_ALLOWED_ORIGINS separada por vírgula
+# IMPORTANTE: As origens NÃO podem ter barra final ou path (apenas domínio)
 CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 if CORS_ALLOWED_ORIGINS_ENV:
-    # Remove espaços e normaliza URLs (remove barra final se houver)
-    origins = [origin.strip().rstrip('/') for origin in CORS_ALLOWED_ORIGINS_ENV.split(',') if origin.strip()]
-    CORS_ALLOWED_ORIGINS = origins
-    # Também permite com barra final (para garantir compatibilidade)
-    CORS_ALLOWED_ORIGINS.extend([origin + '/' for origin in origins if not origin.endswith('/')])
+    # Remove espaços e remove barra final se houver (django-cors-headers não permite paths)
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip().rstrip('/')
+        for origin in CORS_ALLOWED_ORIGINS_ENV.split(',')
+        if origin.strip()
+    ]
 else:
     # Desenvolvimento local
     CORS_ALLOWED_ORIGINS = [
