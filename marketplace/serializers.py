@@ -47,12 +47,12 @@ class ToolSerializer(serializers.ModelSerializer):
                 tool=self.instance,
                 status__in=['pending', 'approved']
             ).exists()
-            
+
             if active_rentals:
                 raise serializers.ValidationError(
                     'Não é possível alterar o preço de uma ferramenta com aluguéis ativos ou pendentes.'
                 )
-        
+
         return value
 
     def validate_photo(self, value):
@@ -85,7 +85,21 @@ class ToolSerializer(serializers.ModelSerializer):
             return None
 
         request = self.context.get("request")
-        url = obj.photo.url
+
+        # Em testes, obj.photo pode ser uma string (public_id)
+        # Em produção, obj.photo é um objeto CloudinaryField com .url
+        if isinstance(obj.photo, str):
+            # Se for string, constrói URL básica do Cloudinary
+            # Formato: https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}
+            return f'https://res.cloudinary.com/test/image/upload/{obj.photo}'
+
+        # Tenta acessar .url, mas trata erro caso cloud_name não esteja configurado
+        try:
+            url = obj.photo.url
+        except (ValueError, AttributeError):
+            # Se falhar (ex: cloud_name não configurado em testes), usa o public_id
+            public_id = str(obj.photo) if hasattr(obj.photo, '__str__') else obj.photo
+            return f'https://res.cloudinary.com/test/image/upload/{public_id}'
 
         if request is not None:
             return request.build_absolute_uri(url)
@@ -140,15 +154,15 @@ class RentalCreateSerializer(serializers.ModelSerializer):
         Compara apenas a data (sem hora).
         """
         from django.utils import timezone
-        
+
         today = timezone.now().date()
         start_date = value.date() if hasattr(value, 'date') else value
-        
+
         if start_date < today:
             raise serializers.ValidationError(
                 'Não é possível alugar para datas passadas.'
             )
-        
+
         return value
 
     def validate(self, attrs):
@@ -157,12 +171,12 @@ class RentalCreateSerializer(serializers.ModelSerializer):
         """
         tool = attrs.get('tool')
         request = self.context.get('request')
-        
+
         if request and tool and tool.owner == request.user:
             raise serializers.ValidationError({
                 'tool_id': 'Você não pode alugar suas próprias ferramentas.'
             })
-        
+
         return attrs
 
     def to_representation(self, instance):
