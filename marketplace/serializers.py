@@ -36,6 +36,25 @@ class ToolSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["owner", "created_at", "is_available"]
 
+    def validate_price_per_day(self, value):
+        """
+        Impede alterar o preço de uma ferramenta com aluguéis ativos ou pendentes.
+        """
+        # Se estiver editando uma ferramenta existente
+        if self.instance:
+            # Verificar se há aluguéis ativos ou pendentes
+            active_rentals = Rental.objects.filter(
+                tool=self.instance,
+                status__in=['pending', 'approved']
+            ).exists()
+            
+            if active_rentals:
+                raise serializers.ValidationError(
+                    'Não é possível alterar o preço de uma ferramenta com aluguéis ativos ou pendentes.'
+                )
+        
+        return value
+
     def validate_photo(self, value):
         """
         Valida o tamanho e formato da imagem.
@@ -114,6 +133,37 @@ class RentalCreateSerializer(serializers.ModelSerializer):
             "start_date",
             "end_date",
         ]
+
+    def validate_start_date(self, value):
+        """
+        Valida que a data de início não pode ser no passado.
+        Compara apenas a data (sem hora).
+        """
+        from django.utils import timezone
+        
+        today = timezone.now().date()
+        start_date = value.date() if hasattr(value, 'date') else value
+        
+        if start_date < today:
+            raise serializers.ValidationError(
+                'Não é possível alugar para datas passadas.'
+            )
+        
+        return value
+
+    def validate(self, attrs):
+        """
+        Valida que o usuário não pode alugar suas próprias ferramentas.
+        """
+        tool = attrs.get('tool')
+        request = self.context.get('request')
+        
+        if request and tool and tool.owner == request.user:
+            raise serializers.ValidationError({
+                'tool_id': 'Você não pode alugar suas próprias ferramentas.'
+            })
+        
+        return attrs
 
     def to_representation(self, instance):
         return RentalSerializer(instance, context=self.context).data

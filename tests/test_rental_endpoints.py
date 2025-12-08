@@ -8,7 +8,8 @@ from marketplace.models import Rental, Tool
 
 
 @pytest.mark.django_db
-def test_create_rental_calculates_total_and_blocks_tool(auth_client, owner_user):
+def test_create_rental_calculates_total_and_keeps_tool_available(auth_client, owner_user):
+    """Testa que aluguel calcula total corretamente e ferramenta permanece disponível (status pending)"""
     from django.utils import timezone
     tool = baker.make(Tool, owner=owner_user, price_per_day=Decimal("50.00"))
     today = timezone.now().date()
@@ -24,7 +25,8 @@ def test_create_rental_calculates_total_and_blocks_tool(auth_client, owner_user)
     data = response.json()
     assert data["total_price"] == "150.00"
     tool.refresh_from_db()
-    assert tool.is_available is False
+    # Ferramenta deve permanecer disponível enquanto aluguel está pending
+    assert tool.is_available is True
 
 
 @pytest.mark.django_db
@@ -81,9 +83,22 @@ def test_owner_can_reject_rental_and_release_tool(owner_client, owner_user, user
 
 @pytest.mark.django_db
 def test_create_rental_fails_when_tool_unavailable(auth_client, owner_user):
+    """Testa que não é possível criar aluguel quando há conflito com aluguel aprovado"""
     from django.utils import timezone
     tool = baker.make(Tool, owner=owner_user, is_available=False)
     today = timezone.now().date()
+    
+    # Criar aluguel aprovado que conflita
+    baker.make(
+        Rental,
+        tool=tool,
+        renter=owner_user,
+        status="approved",
+        start_date=today,
+        end_date=today + timedelta(days=2),
+    )
+    
+    # Tentar criar outro aluguel no mesmo período
     payload = {
         "tool_id": tool.id,
         "start_date": today.isoformat(),
@@ -94,13 +109,8 @@ def test_create_rental_fails_when_tool_unavailable(auth_client, owner_user):
 
     assert response.status_code == 400
     error_data = response.json()
-    # Verificar se a mensagem está em non_field_errors ou em outro formato
-    if "non_field_errors" in error_data:
-        assert any("não está disponível" in str(err) for err in error_data["non_field_errors"])
-    else:
-        # Pode estar em outro formato de erro
-        error_str = str(error_data).lower()
-        assert "não está disponível" in error_str or "disponível" in error_str
+    error_str = str(error_data).lower()
+    assert "conflito" in error_str or "período" in error_str or "aprovado" in error_str
 
 
 @pytest.mark.django_db

@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 
 from .models import Tool, Rental
@@ -106,6 +107,29 @@ class ToolViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Impede deletar ferramenta com aluguéis ativos ou pendentes.
+        """
+        tool = self.get_object()
+        
+        # Verificar se há aluguéis ativos ou pendentes
+        active_rentals = Rental.objects.filter(
+            tool=tool,
+            status__in=['pending', 'approved']
+        ).exists()
+        
+        if active_rentals:
+            return Response(
+                {
+                    "detail": "Não é possível deletar ferramenta com aluguéis ativos ou pendentes. "
+                             "Aguarde a conclusão ou rejeição dos aluguéis."
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+        
+        return super().destroy(request, *args, **kwargs)
+
     @extend_schema(
         summary="Minhas ferramentas",
         description="Lista todas as ferramentas do usuário autenticado.",
@@ -136,7 +160,7 @@ class ToolViewSet(ModelViewSet):
     ),
     create=extend_schema(
         summary="Criar aluguel",
-        description="Cria uma solicitação de aluguel. Valida disponibilidade, datas e conflitos. Bloqueia a ferramenta automaticamente.",
+        description="Cria uma solicitação de aluguel (status 'pending'). Valida conflitos de período, datas e impede alugar próprias ferramentas. A ferramenta permanece disponível até o aluguel ser aprovado.",
         tags=["Aluguéis"],
     ),
 )
@@ -156,19 +180,67 @@ class RentalViewSet(ModelViewSet):
             return RentalCreateSerializer
         return RentalSerializer
 
+    def _update_tool_availability(self, tool):
+        """
+        Atualiza a disponibilidade da ferramenta baseado em aluguéis ativos.
+        Ferramenta fica indisponível se houver aluguéis aprovados (ativos ou futuros).
+        """
+        today = timezone.now().date()
+        
+        # Verificar se há aluguéis aprovados e dentro do período ativo
+        active_rentals = Rental.objects.filter(
+            tool=tool,
+            status='approved',
+            start_date__lte=today,
+            end_date__gte=today
+        ).exists()
+        
+        # Verificar se há aluguéis aprovados que ainda vão começar
+        future_approved_rentals = Rental.objects.filter(
+            tool=tool,
+            status='approved',
+            start_date__gt=today
+        ).exists()
+        
+        # Ferramenta fica indisponível se houver aluguéis ativos ou futuros aprovados
+        tool.is_available = not (active_rentals or future_approved_rentals)
+        tool.save(update_fields=["is_available"])
+
     def perform_create(self, serializer):
         tool = serializer.validated_data["tool"]
         start_date = serializer.validated_data["start_date"]
         end_date = serializer.validated_data["end_date"]
         today = timezone.now().date()
 
-        # Validação 1: Ferramenta deve estar disponível (verificar primeiro)
-        if not tool.is_available:
-            raise ValidationError("Esta ferramenta não está disponível para aluguel.")
+        # Validação 1: Verificar se há conflito com aluguéis aprovados
+        # (ferramenta pode estar disponível mas ter aluguéis futuros aprovados)
+        approved_conflicts = Rental.objects.filter(
+            tool=tool,
+            status="approved"
+        ).filter(
+            Q(start_date__lte=end_date) & Q(end_date__gte=start_date)
+        )
 
-        # Validação 2: Data inicial não pode ser no passado
-        if start_date < today:
-            raise ValidationError("A data inicial não pode ser no passado.")
+        if approved_conflicts.exists():
+            raise ValidationError(
+                "Já existe um aluguel aprovado para este período. "
+                "Escolha outras datas."
+            )
+
+        # Validação 2: Verificar conflito com outros aluguéis pendentes no mesmo período
+        # (evitar múltiplas solicitações para o mesmo período)
+        pending_conflicts = Rental.objects.filter(
+            tool=tool,
+            status="pending"
+        ).filter(
+            Q(start_date__lte=end_date) & Q(end_date__gte=start_date)
+        )
+
+        if pending_conflicts.exists():
+            raise ValidationError(
+                "Já existe uma solicitação de aluguel pendente para este período. "
+                "Escolha outras datas."
+            )
 
         # Validação 3: Data final deve ser maior ou igual à data inicial
         if end_date < start_date:
@@ -179,27 +251,10 @@ class RentalViewSet(ModelViewSet):
         if days <= 0:
             raise ValidationError("Período de aluguel inválido.")
 
-        # Validação 5: Verificar conflito com outros aluguéis aprovados ou pendentes
-        # Um aluguel conflita se:
-        # - O período se sobrepõe (start_date <= outro.end_date AND end_date >= outro.start_date)
-        # - E o status é 'pending' ou 'approved'
-        conflicting_rentals = Rental.objects.filter(
-            tool=tool,
-            status__in=["pending", "approved"]
-        ).filter(
-            Q(start_date__lte=end_date) & Q(end_date__gte=start_date)
-        )
-
-        if conflicting_rentals.exists():
-            raise ValidationError(
-                "Já existe um aluguel aprovado ou pendente para este período. "
-                "Escolha outras datas."
-            )
-
         total_price = (tool.price_per_day or Decimal("0")) * days
 
-        tool.is_available = False
-        tool.save(update_fields=["is_available"])
+        # NÃO alterar disponibilidade aqui - será alterada apenas quando aprovar
+        # Ferramenta permanece disponível enquanto o aluguel está "pending"
 
         serializer.save(
             renter=self.request.user,
@@ -258,9 +313,10 @@ class RentalViewSet(ModelViewSet):
         self._ensure_pending(rental)
 
         rental.status = "approved"
-        rental.tool.is_available = False
-        rental.tool.save(update_fields=["is_available"])
         rental.save(update_fields=["status"])
+        
+        # Atualizar disponibilidade da ferramenta baseado em aluguéis ativos
+        self._update_tool_availability(rental.tool)
 
         serializer = self.get_serializer(rental)
         return Response(serializer.data)
@@ -277,9 +333,10 @@ class RentalViewSet(ModelViewSet):
         self._ensure_pending(rental)
 
         rental.status = "rejected"
-        rental.tool.is_available = True
-        rental.tool.save(update_fields=["is_available"])
         rental.save(update_fields=["status"])
+        
+        # Atualizar disponibilidade da ferramenta (pode voltar a ficar disponível)
+        self._update_tool_availability(rental.tool)
 
         serializer = self.get_serializer(rental)
         return Response(serializer.data)
@@ -303,9 +360,10 @@ class RentalViewSet(ModelViewSet):
             raise ValidationError("Apenas aluguéis aprovados podem ser finalizados.")
 
         rental.status = "finished"
-        rental.tool.is_available = True
-        rental.tool.save(update_fields=["is_available"])
         rental.save(update_fields=["status"])
+        
+        # Atualizar disponibilidade da ferramenta (pode voltar a ficar disponível)
+        self._update_tool_availability(rental.tool)
 
         serializer = self.get_serializer(rental)
         return Response(serializer.data)

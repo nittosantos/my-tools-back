@@ -2,10 +2,25 @@ from __future__ import annotations
 
 import pytest
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from io import BytesIO
+from PIL import Image
 from model_bakery import baker
 from rest_framework.test import APIClient
 
 from marketplace.models import Tool
+
+# Configurar baker para lidar com CloudinaryField
+def make_image():
+    """Cria uma imagem fake para testes"""
+    img = Image.new("RGB", (100, 100), color="red")
+    img_io = BytesIO()
+    img.save(img_io, format="JPEG")
+    img_io.seek(0)
+    return SimpleUploadedFile("test_tool.jpg", img_io.read(), content_type="image/jpeg")
+
+# Configurar baker para usar imagem padrão quando photo não for especificado
+baker.generators.add('cloudinary.models.CloudinaryField', make_image)
 
 
 @pytest.fixture

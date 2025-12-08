@@ -22,8 +22,10 @@ def test_create_rental_fails_with_past_date(auth_client, owner_user):
 
     assert response.status_code == 400
     error_data = response.json()
-    error_str = str(error_data).lower()
-    assert "passado" in error_str or "past" in error_str
+    # Verificar se há erro relacionado a data passada
+    assert "start_date" in error_data
+    error_message = str(error_data["start_date"]).lower()
+    assert "passado" in error_message or "past" in error_message or "datas" in error_message
 
 
 @pytest.mark.django_db
